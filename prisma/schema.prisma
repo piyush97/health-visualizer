@@ -14,16 +14,64 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
+// Health Data Models
+model HealthDataUpload {
+    id          String   @id @default(cuid())
+    fileName    String
+    fileSize    Int
+    uploadedAt  DateTime @default(now())
+    processedAt DateTime?
+    status      UploadStatus @default(PROCESSING)
+    
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    
+    healthRecords HealthRecord[]
+    
+    @@index([userId])
+}
+
+model HealthRecord {
+    id        String   @id @default(cuid())
+    type      String   // e.g., "HKQuantityTypeIdentifierStepCount"
+    value     String   // Value as string to handle various data types
+    unit      String?  // e.g., "count", "kg", "bpm"
+    startDate DateTime
+    endDate   DateTime
     createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    
+    uploadId String
+    upload   HealthDataUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+    
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    
+    @@index([userId, type])
+    @@index([startDate])
+    @@index([uploadId])
+}
 
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
+model ChatMessage {
+    id        String      @id @default(cuid())
+    content   String
+    role      MessageRole
+    createdAt DateTime    @default(now())
+    
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    
+    @@index([userId, createdAt])
+}
 
-    @@index([name])
+enum UploadStatus {
+    PROCESSING
+    COMPLETED
+    FAILED
+}
+
+enum MessageRole {
+    USER
+    ASSISTANT
 }
 
 // Necessary for Next auth
@@ -62,7 +110,11 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
-    posts         Post[]
+    
+    // Health data relationships
+    healthDataUploads HealthDataUpload[]
+    healthRecords     HealthRecord[]
+    chatMessages      ChatMessage[]
 }
 
 model VerificationToken {

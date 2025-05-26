@@ -22,6 +22,22 @@ export const healthRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Ensure user exists in our database (upsert from Clerk user data)
+      await ctx.db.user.upsert({
+        where: { id: ctx.user.id },
+        update: {
+          name: ctx.user.fullName,
+          email: ctx.user.emailAddresses[0]?.emailAddress,
+          image: ctx.user.imageUrl,
+        },
+        create: {
+          id: ctx.user.id,
+          name: ctx.user.fullName,
+          email: ctx.user.emailAddresses[0]?.emailAddress,
+          image: ctx.user.imageUrl,
+        },
+      });
+
       // Create upload record
       const upload = await ctx.db.healthDataUpload.create({
         data: {
@@ -70,7 +86,8 @@ export const healthRouter = createTRPCRouter({
           uploadId: upload.id,
           recordsCreated: input.healthRecords.length,
         };
-      } catch (error) {
+      } catch (dbError) {
+        console.error("Database error:", dbError);
         // Mark upload as failed
         await ctx.db.healthDataUpload.update({
           where: { id: upload.id },
@@ -140,7 +157,7 @@ export const healthRouter = createTRPCRouter({
     let latestDate = new Date(0);
 
     for (const record of records) {
-      dataTypes[record.type] = (dataTypes[record.type] || 0) + 1;
+      dataTypes[record.type] = (dataTypes[record.type] ?? 0) + 1;
 
       if (record.startDate < earliestDate) earliestDate = record.startDate;
       if (record.endDate > latestDate) latestDate = record.endDate;

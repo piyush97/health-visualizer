@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="iPhone" sourceVersion="17.0" value="5432" unit="count" creationDate="2024-01-01 12:00:00 +0000" startDate="2024-01-01 08:00:00 +0000" endDate="2024-01-01 20:00:00 +0000"/>
+  <Record type="HKQuantityTypeIdentifierHeartRate" sourceName="Apple Watch" sourceVersion="10.0" value="72" unit="bpm" creationDate="2024-01-01 14:30:00 +0000" startDate="2024-01-01 14:30:00 +0000" endDate="2024-01-01 14:30:00 +0000"/>
+  <Record type="HKQuantityTypeIdentifierDistanceWalkingRunning" sourceName="iPhone" sourceVersion="17.0" value="3.2" unit="km" creationDate="2024-01-01 18:00:00 +0000" startDate="2024-01-01 08:00:00 +0000" endDate="2024-01-01 18:00:00 +0000"/>
+</HealthData>

@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
+import { currentUser } from "@clerk/nextjs/server";
 import { existsSync } from "fs";
+import { mkdir, writeFile } from "fs/promises";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
@@ -9,22 +11,24 @@ export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
 
 export async function POST(request: NextRequest) {
+  // Check authentication
+  const user = await currentUser();
+  if (!user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    
+
     if (!file) {
-      return NextResponse.json(
-        { error: "No file provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Validate file type
     if (!file.name.toLowerCase().endsWith(".xml")) {
       return NextResponse.json(
         { error: "Only XML files are supported" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,7 +37,7 @@ export async function POST(request: NextRequest) {
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: "File too large. Maximum size is 5GB." },
-        { status: 413 }
+        { status: 413 },
       );
     }
 
@@ -57,14 +61,13 @@ export async function POST(request: NextRequest) {
       fileId,
       fileName: file.name,
       size: file.size,
-      message: "File uploaded successfully"
+      message: "File uploaded successfully",
     });
-
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(
       { error: "Failed to upload file" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

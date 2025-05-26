@@ -1,3 +1,4 @@
+import { currentUser } from "@clerk/nextjs/server";
 import {
   Activity,
   Heart,
@@ -9,14 +10,13 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { auth } from "~/server/auth";
 import { HydrateClient } from "~/trpc/server";
 
 export default async function Home() {
-  const session = await auth();
+  const user = await currentUser();
 
   // Redirect authenticated users to dashboard
-  if (session?.user) {
+  if (user) {
     redirect("/dashboard");
   }
 
@@ -34,7 +34,7 @@ export default async function Home() {
                 </h1>
               </div>
               <Link
-                href="/signin"
+                href="/sign-in"
                 className="rounded-lg bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600"
               >
                 Sign In
@@ -66,7 +66,7 @@ export default async function Home() {
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Link
-                href="/signin"
+                href="/sign-in"
                 className="inline-flex items-center justify-center rounded-lg bg-blue-500 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-blue-600"
               >
                 Get Started
@@ -176,7 +176,7 @@ export default async function Home() {
               about their health and wellness.
             </p>
             <Link
-              href="/signin"
+              href="/sign-in"
               className="inline-flex items-center rounded-lg bg-white px-8 py-4 text-lg font-semibold text-blue-500 transition-colors hover:bg-gray-100"
             >
               Start Your Health Journey

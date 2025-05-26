@@ -7,14 +7,9 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
-    AUTH_SECRET:
-      process.env.NODE_ENV === "production"
-        ? z.string()
-        : z.string().optional(),
     DATABASE_URL: z.string().url(),
     OPENAI_API_KEY: z.string(),
-    GITHUB_CLIENT_ID: z.string(),
-    GITHUB_CLIENT_SECRET: z.string(),
+    CLERK_SECRET_KEY: z.string(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -26,7 +21,7 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string(),
   },
 
   /**
@@ -34,11 +29,11 @@ export const env = createEnv({
    * middlewares) or client-side so we need to destruct manually.
    */
   runtimeEnv: {
-    AUTH_SECRET: process.env.AUTH_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
-    GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+    CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**

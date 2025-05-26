@@ -28,7 +28,7 @@ export const healthRouter = createTRPCRouter({
           fileName: input.fileName,
           fileSize: input.fileSize,
           status: "PROCESSING",
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
         },
       });
 
@@ -51,7 +51,7 @@ export const healthRouter = createTRPCRouter({
               startDate: new Date(record.startDate),
               endDate: new Date(record.endDate),
               uploadId: upload.id,
-              userId: ctx.session.user.id,
+              userId: ctx.user.id,
             })),
           });
         }
@@ -93,7 +93,7 @@ export const healthRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const where = {
-        userId: ctx.session.user.id,
+        userId: ctx.user.id,
         ...(input.types && { type: { in: input.types } }),
         ...(input.startDate && { startDate: { gte: input.startDate } }),
         ...(input.endDate && { endDate: { lte: input.endDate } }),
@@ -109,7 +109,7 @@ export const healthRouter = createTRPCRouter({
   // Get health data uploads
   getUploads: protectedProcedure.query(async ({ ctx }) => {
     return ctx.db.healthDataUpload.findMany({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.user.id },
       orderBy: { uploadedAt: "desc" },
       include: {
         _count: {
@@ -122,7 +122,7 @@ export const healthRouter = createTRPCRouter({
   // Get health data summary
   getHealthSummary: protectedProcedure.query(async ({ ctx }) => {
     const records = await ctx.db.healthRecord.findMany({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.user.id },
       select: {
         type: true,
         startDate: true,
@@ -160,7 +160,7 @@ export const healthRouter = createTRPCRouter({
   getAvailableDataTypes: protectedProcedure.query(async ({ ctx }) => {
     const result = await ctx.db.healthRecord.groupBy({
       by: ["type"],
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.user.id },
       _count: {
         type: true,
       },
@@ -180,7 +180,7 @@ export const healthRouter = createTRPCRouter({
       const upload = await ctx.db.healthDataUpload.findFirst({
         where: {
           id: input.uploadId,
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
         },
       });
 

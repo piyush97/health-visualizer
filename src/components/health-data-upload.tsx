@@ -38,11 +38,6 @@ export function HealthDataUpload({
           throw new Error("Please upload a valid Apple Health XML file");
         }
 
-        // Validate file size (max 100MB)
-        if (file.size > 100 * 1024 * 1024) {
-          throw new Error("File size must be less than 100MB");
-        }
-
         // Parse the health data
         const parsedData = await HealthDataParser.parseXMLFile(file);
 

@@ -28,13 +28,13 @@ export const chatRouter = createTRPCRouter({
           data: {
             content: input.content,
             role: "USER",
-            userId: ctx.session.user.id,
+            userId: ctx.user.id,
           },
         });
 
         // Get recent health data for context
         const recentRecords = await ctx.db.healthRecord.findMany({
-          where: { userId: ctx.session.user.id },
+          where: { userId: ctx.user.id },
           orderBy: { startDate: "desc" },
           take: 100,
         });
@@ -102,7 +102,7 @@ Remember: Always suggest users consult healthcare professionals for medical conc
           data: {
             content: text,
             role: "ASSISTANT",
-            userId: ctx.session.user.id,
+            userId: ctx.user.id,
           },
         });
 
@@ -123,7 +123,7 @@ Remember: Always suggest users consult healthcare professionals for medical conc
     )
     .query(async ({ ctx, input }) => {
       // Ensure user can only access their own messages
-      if (input.userId !== ctx.session.user.id) {
+      if (input.userId !== ctx.user.id) {
         throw new Error("Unauthorized");
       }
 
@@ -137,7 +137,7 @@ Remember: Always suggest users consult healthcare professionals for medical conc
   // Clear chat history
   clearMessages: protectedProcedure.mutation(async ({ ctx }) => {
     await ctx.db.chatMessage.deleteMany({
-      where: { userId: ctx.session.user.id },
+      where: { userId: ctx.user.id },
     });
 
     return { success: true };

@@ -1,5 +1,6 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import {
   Activity,
   Heart,
@@ -7,7 +8,6 @@ import {
   TrendingUp,
   Upload,
 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { HealthChatbot } from "~/components/health-chatbot";
 import { HealthDataUpload } from "~/components/health-data-upload";
@@ -17,7 +17,7 @@ import type { ParsedHealthData } from "~/types/health";
 import { METRIC_DISPLAY_NAMES } from "~/types/health";
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const { user, isLoaded } = useUser();
   const [activeTab, setActiveTab] = useState<"upload" | "visualize" | "chat">(
     "upload",
   );
@@ -28,27 +28,27 @@ export default function DashboardPage() {
   const { data: healthRecords, refetch: refetchRecords } =
     api.health.getHealthRecords.useQuery(
       { limit: 5000 },
-      { enabled: !!session?.user?.id },
+      { enabled: !!user?.id },
     );
 
   const { data: healthSummary } = api.health.getHealthSummary.useQuery(
     undefined,
-    { enabled: !!session?.user?.id },
+    { enabled: !!user?.id },
   );
 
   const { data: availableDataTypes } =
     api.health.getAvailableDataTypes.useQuery(undefined, {
-      enabled: !!session?.user?.id,
+      enabled: !!user?.id,
     });
 
   const { data: uploads } = api.health.getUploads.useQuery(undefined, {
-    enabled: !!session?.user?.id,
+    enabled: !!user?.id,
   });
 
   // Mutations
   const uploadMutation = api.health.uploadHealthData.useMutation({
     onSuccess: () => {
-      refetchRecords();
+      void refetchRecords();
       setActiveTab("visualize");
     },
   });
@@ -59,7 +59,7 @@ export default function DashboardPage() {
   ) => {
     setUploadedData(data);
 
-    if (session?.user?.id) {
+    if (user?.id) {
       try {
         await uploadMutation.mutateAsync({
           fileName,
@@ -99,7 +99,7 @@ export default function DashboardPage() {
     }
   }, [availableDataTypes, selectedMetrics]);
 
-  if (!session) {
+  if (!isLoaded || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -135,7 +135,8 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                Welcome, {session.user.name || session.user.email}
+                Welcome,{" "}
+                {user.firstName ?? user.emailAddresses[0]?.emailAddress}
               </div>
             </div>
           </div>
@@ -201,158 +202,176 @@ export default function DashboardPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 border-b-2 px-1 py-4 text-sm font-medium ${
+                  className={`flex items-center border-b-2 px-1 py-4 text-sm font-medium whitespace-nowrap ${
                     activeTab === tab.id
                       ? "border-blue-500 text-blue-600"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
                   }`}
+                  onClick={() => setActiveTab(tab.id)}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span>{tab.name}</span>
+                  <Icon className="mr-2 h-5 w-5" />
+                  {tab.name}
                 </button>
               );
             })}
           </nav>
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Tab Content */}
         {activeTab === "upload" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                Upload Health Data
-              </h2>
+          <div className="py-6">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Upload Apple Health Data
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Export your data from the Apple Health app and upload the XML
+                  file here.
+                </p>
+              </div>
+
               <HealthDataUpload
                 onDataParsed={handleDataParsed}
                 onError={handleUploadError}
+                isUploading={uploadMutation.isPending}
               />
-            </div>
 
-            {uploads && uploads.length > 0 && (
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                  Previous Uploads
-                </h3>
-                <div className="overflow-hidden rounded-lg bg-white shadow">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                          File Name
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                          Upload Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                          Records
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {uploads.map((upload) => (
-                        <tr key={upload.id}>
-                          <td className="px-6 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
-                            {upload.fileName}
-                          </td>
-                          <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
-                            {upload.uploadedAt.toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 text-sm whitespace-nowrap text-gray-500">
-                            {upload._count.healthRecords.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                                upload.status === "COMPLETED"
-                                  ? "bg-green-100 text-green-800"
-                                  : upload.status === "PROCESSING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {upload.status}
-                            </span>
-                          </td>
-                        </tr>
+              {/* Recent Uploads */}
+              {uploads && uploads.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Recent Uploads
+                  </h3>
+                  <div className="mt-4 overflow-hidden rounded-lg bg-white shadow">
+                    <ul className="divide-y divide-gray-200">
+                      {uploads.slice(0, 5).map((upload) => (
+                        <li key={upload.id} className="px-6 py-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {upload.fileName}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {upload.uploadedAt.toLocaleDateString()}{" "}
+                                {upload.uploadedAt.toLocaleTimeString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center">
+                              <span
+                                className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                                  upload.status === "COMPLETED"
+                                    ? "bg-green-100 text-green-800"
+                                    : upload.status === "PROCESSING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {upload.status}
+                              </span>
+                            </div>
+                          </div>
+                        </li>
                       ))}
-                    </tbody>
-                  </table>
+                    </ul>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === "visualize" && (
-          <div className="space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900 lg:mb-0">
-                Data Visualization
-              </h2>
-
-              {availableDataTypes && availableDataTypes.length > 0 && (
-                <div className="lg:max-w-md">
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Select Metrics to Display
-                  </label>
-                  <select
-                    multiple
-                    value={selectedMetrics}
-                    onChange={(e) => {
-                      const values = Array.from(
-                        e.target.selectedOptions,
-                        (option) => option.value,
-                      );
-                      setSelectedMetrics(values);
-                    }}
-                    className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none"
-                    size={Math.min(availableDataTypes.length, 8)}
-                  >
-                    {availableDataTypes.map((dataType) => (
-                      <option key={dataType.type} value={dataType.type}>
-                        {METRIC_DISPLAY_NAMES[dataType.type]?.name ||
-                          dataType.type}{" "}
-                        ({dataType.count})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Hold Cmd/Ctrl to select multiple metrics
+          <div className="py-6">
+            {availableDataTypes && availableDataTypes.length > 0 ? (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Health Data Visualization
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Select health metrics to visualize your data patterns.
                   </p>
                 </div>
-              )}
-            </div>
 
-            {healthRecords && healthRecords.length > 0 ? (
-              <HealthDataVisualization
-                healthRecords={healthRecords}
-                selectedMetrics={selectedMetrics}
-              />
+                {/* Data Type Selection */}
+                <div>
+                  <h3 className="text-md font-medium text-gray-900">
+                    Available Data Types
+                  </h3>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {availableDataTypes.map((dataType) => (
+                      <label
+                        key={dataType.type}
+                        className="flex items-center space-x-3"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedMetrics.includes(dataType.type)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMetrics((prev) => [
+                                ...prev,
+                                dataType.type,
+                              ]);
+                            } else {
+                              setSelectedMetrics((prev) =>
+                                prev.filter((m) => m !== dataType.type),
+                              );
+                            }
+                          }}
+                        />
+                        <span className="text-sm text-gray-700">
+                          {METRIC_DISPLAY_NAMES[dataType.type]?.name ??
+                            dataType.type}{" "}
+                          ({dataType.count} records)
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Visualization */}
+                {selectedMetrics.length > 0 && healthRecords && (
+                  <HealthDataVisualization
+                    healthRecords={healthRecords}
+                    selectedMetrics={selectedMetrics}
+                  />
+                )}
+              </div>
             ) : (
               <div className="py-12 text-center">
-                <Activity className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                <p className="text-gray-500">
-                  No health data available. Please upload your data first.
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  No health data
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Upload your Apple Health data to start visualizing.
                 </p>
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+                    onClick={() => setActiveTab("upload")}
+                  >
+                    <Upload className="mr-1.5 -ml-0.5 h-5 w-5" />
+                    Upload Data
+                  </button>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {activeTab === "chat" && session?.user?.id && (
-          <div className="space-y-6">
+        {activeTab === "chat" && user?.id && (
+          <div className="space-y-6 py-6">
             <h2 className="text-lg font-semibold text-gray-900">
               Health Assistant
             </h2>
             <HealthChatbot
-              userId={session.user.id}
-              healthSummary={healthSummary}
+              userId={user.id}
+              healthSummary={healthSummary ?? undefined}
             />
           </div>
         )}

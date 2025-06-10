@@ -1,14 +1,15 @@
+import { auth } from "@clerk/nextjs/server";
 import { Activity } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { AuthSignIn } from "~/components/auth-signin";
-import { auth } from "~/server/auth";
+
 
 export default async function SignInPage() {
   const session = await auth();
 
   // Redirect authenticated users to dashboard
-  if (session?.user) {
+  if (session?.userId) {
     redirect("/dashboard");
   }
 

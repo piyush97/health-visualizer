@@ -59,14 +59,12 @@ export const chatRouter = createTRPCRouter({
           > = {};
 
           recentRecords.forEach((record) => {
-            if (!recentSummary[record.type]) {
-              recentSummary[record.type] = {
-                count: 0,
-                latest: record.value,
-                unit: record.unit || undefined,
-              };
-            }
-            recentSummary[record.type].count++;
+            recentSummary[record.type] ??= {
+              count: 0,
+              latest: record.value,
+              unit: record.unit ?? undefined,
+            };
+            recentSummary[record.type]!.count++;
           });
 
           healthContext += "Recent Health Data:\n";

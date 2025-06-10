@@ -22,13 +22,14 @@ export default function DashboardPage() {
     "upload",
   );
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
-  const [uploadedData, setUploadedData] = useState<ParsedHealthData[]>([]);
 
   // API queries
   const { data: healthRecords, refetch: refetchRecords } =
     api.health.getHealthRecords.useQuery(
       { limit: 5000 },
-      { enabled: !!user?.id },
+      { 
+        enabled: !!user?.id,
+      },
     );
 
   const { data: healthSummary } = api.health.getHealthSummary.useQuery(
@@ -36,10 +37,12 @@ export default function DashboardPage() {
     { enabled: !!user?.id },
   );
 
-  const { data: availableDataTypes } =
-    api.health.getAvailableDataTypes.useQuery(undefined, {
-      enabled: !!user?.id,
-    });
+  // Query to fetch available data types - this controls what's shown in visualization tab
+  const { data: availableDataTypes, refetch: refetchAvailableDataTypes } =
+    api.health.getAvailableDataTypes.useQuery(
+      undefined, 
+      { enabled: !!user?.id }
+    );
 
   const { data: uploads } = api.health.getUploads.useQuery(undefined, {
     enabled: !!user?.id,
@@ -47,9 +50,39 @@ export default function DashboardPage() {
 
   // Mutations
   const uploadMutation = api.health.uploadHealthData.useMutation({
-    onSuccess: () => {
-      void refetchRecords();
-      setActiveTab("visualize");
+    onSuccess: async () => {
+      console.log("Upload successful, refetching data...");
+      
+      try {
+        // Refetch both records and data types to update the UI
+        const [recordsResult, typesResult] = await Promise.all([
+          refetchRecords(),
+          refetchAvailableDataTypes(), 
+        ]);
+        
+        console.log(`Refetched ${recordsResult.data?.length ?? 0} records`);
+        console.log(`Refetched ${typesResult.data?.length ?? 0} data types`);
+        
+        // Switch to visualize tab after confirming data is loaded
+        if (recordsResult.data?.length && typesResult.data?.length) {
+          setActiveTab("visualize");
+        } else {
+          console.warn("No data available after refetch, delaying tab switch");
+          // Try one more time after a delay
+          setTimeout(() => {
+            void Promise.all([
+              refetchRecords(),
+              refetchAvailableDataTypes(), 
+            ]).then(([recordsRetry, typesRetry]) => {
+              if (recordsRetry.data?.length && typesRetry.data?.length) {
+                setActiveTab("visualize");
+              }
+            });
+          }, 1000);
+        }
+      } catch (error) {
+        console.error("Error refetching data:", error);
+      }
     },
   });
 
@@ -57,10 +90,9 @@ export default function DashboardPage() {
     data: ParsedHealthData[],
     fileName: string,
   ) => {
-    setUploadedData(data);
-
     if (user?.id) {
       try {
+        // This will trigger the onSuccess callback above
         await uploadMutation.mutateAsync({
           fileName,
           fileSize: data.length,
@@ -76,6 +108,17 @@ export default function DashboardPage() {
     console.error("Upload error:", error);
     // You might want to show a toast notification here
   };
+
+  // Refresh data when component mounts
+  useEffect(() => {
+    if (user?.id) {
+      console.log("Dashboard mounted, ensuring data is up to date");
+      void Promise.all([
+        refetchRecords(),
+        refetchAvailableDataTypes()
+      ]);
+    }
+  }, [user?.id, refetchRecords, refetchAvailableDataTypes]);
 
   // Auto-select some common metrics when data is loaded
   useEffect(() => {
@@ -283,7 +326,7 @@ export default function DashboardPage() {
 
         {activeTab === "visualize" && (
           <div className="py-6">
-            {availableDataTypes && availableDataTypes.length > 0 ? (
+            {availableDataTypes && availableDataTypes.length > 0 && healthRecords && healthRecords.length > 0 ? (
               <div className="space-y-6">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
@@ -291,6 +334,9 @@ export default function DashboardPage() {
                   </h2>
                   <p className="mt-1 text-sm text-gray-600">
                     Select health metrics to visualize your data patterns.
+                  </p>
+                  <p className="mt-1 text-xs text-blue-600">
+                    {availableDataTypes.length} data types available
                   </p>
                 </div>
 
@@ -300,54 +346,138 @@ export default function DashboardPage() {
                     Available Data Types
                   </h3>
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {availableDataTypes.map((dataType) => (
-                      <label
-                        key={dataType.type}
-                        className="flex items-center space-x-3"
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          checked={selectedMetrics.includes(dataType.type)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedMetrics((prev) => [
-                                ...prev,
-                                dataType.type,
-                              ]);
-                            } else {
-                              setSelectedMetrics((prev) =>
-                                prev.filter((m) => m !== dataType.type),
-                              );
-                            }
-                          }}
-                        />
-                        <span className="text-sm text-gray-700">
-                          {METRIC_DISPLAY_NAMES[dataType.type]?.name ??
-                            dataType.type}{" "}
-                          ({dataType.count} records)
-                        </span>
-                      </label>
+                    {/* Categorized selection UI */}
+                    {Object.entries(
+                      availableDataTypes.reduce((acc, dt) => {
+                        const category = METRIC_DISPLAY_NAMES[dt.type]?.category ?? 'Other';
+                        acc[category] = acc[category] ?? [];
+                        acc[category].push(dt);
+                        return acc;
+                      }, {} as Record<string, typeof availableDataTypes>)
+                    ).map(([category, types]) => (
+                      <div key={category} className="mb-4">
+                        <h4 className="mb-2 font-medium text-gray-800">{category}</h4>
+                        <div className="space-y-1">
+                          {types.map((dataType) => (
+                            <label
+                              key={dataType.type}
+                              className="flex items-center space-x-3"
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                checked={selectedMetrics.includes(dataType.type)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedMetrics((prev) => [
+                                      ...prev,
+                                      dataType.type,
+                                    ]);
+                                  } else {
+                                    setSelectedMetrics((prev) =>
+                                      prev.filter((m) => m !== dataType.type),
+                                    );
+                                  }
+                                }}
+                              />
+                              <span className="text-sm text-gray-700">
+                                {METRIC_DISPLAY_NAMES[dataType.type]?.name ??
+                                  dataType.type}{" "}
+                                ({dataType.count} records)
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     ))}
+                  </div>
+                  
+                  {/* Quick select buttons */}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 hover:bg-blue-200"
+                      onClick={() => {
+                        // Select activity metrics
+                        const activityMetrics = availableDataTypes
+                          .filter(dt => METRIC_DISPLAY_NAMES[dt.type]?.category === 'Activity')
+                          .map(dt => dt.type);
+                        setSelectedMetrics(activityMetrics);
+                      }}
+                    >
+                      Activity Metrics
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-200"
+                      onClick={() => {
+                        // Select heart related metrics
+                        const heartMetrics = availableDataTypes
+                          .filter(dt => 
+                            dt.type.includes('HeartRate') || 
+                            dt.type.includes('Blood') ||
+                            dt.type.includes('Oxygen')
+                          )
+                          .map(dt => dt.type);
+                        setSelectedMetrics(heartMetrics);
+                      }}
+                    >
+                      Heart & Vital Metrics
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-200"
+                      onClick={() => {
+                        // Select body metrics
+                        const bodyMetrics = availableDataTypes
+                          .filter(dt => METRIC_DISPLAY_NAMES[dt.type]?.category === 'Body Measurements')
+                          .map(dt => dt.type);
+                        setSelectedMetrics(bodyMetrics);
+                      }}
+                    >
+                      Body Measurements
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800 hover:bg-purple-200"
+                      onClick={() => {
+                        setSelectedMetrics([]);
+                      }}
+                    >
+                      Clear Selection
+                    </button>
                   </div>
                 </div>
 
                 {/* Visualization */}
                 {selectedMetrics.length > 0 && healthRecords && (
-                  <HealthDataVisualization
-                    healthRecords={healthRecords}
-                    selectedMetrics={selectedMetrics}
-                  />
+                  <>
+                    <p className="text-xs text-blue-600 mb-4">
+                      Showing {healthRecords.length} health records for {selectedMetrics.length} selected metrics
+                    </p>
+                    <HealthDataVisualization
+                      healthRecords={healthRecords.map(record => ({
+                        type: record.type,
+                        value: record.value,
+                        unit: record.unit ?? undefined,
+                        startDate: record.startDate.toISOString(),
+                        endDate: record.endDate.toISOString(),
+                      }))}
+                      selectedMetrics={selectedMetrics}
+                    />
+                  </>
                 )}
               </div>
             ) : (
               <div className="py-12 text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">
-                  No health data
+                  No health data available
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Upload your Apple Health data to start visualizing.
+                  {uploads && uploads.length > 0 
+                    ? "Your data is still processing or no metrics were found. Try refreshing the page."
+                    : "Upload your Apple Health data to start visualizing."}
                 </p>
                 <div className="mt-6">
                   <button

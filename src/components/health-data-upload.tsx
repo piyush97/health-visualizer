@@ -1,14 +1,21 @@
 "use client";
 
+import { format, parseISO, subMonths } from "date-fns";
 import { AlertCircle, CheckCircle, FileX, Loader2, Upload } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { api } from "~/trpc/react";
 import type { ParsedHealthData } from "~/types/health";
+import { HEALTH_DATA_TYPES, METRIC_CATEGORIES } from "~/types/health";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 
 interface HealthDataUploadProps {
   onDataParsed: (data: ParsedHealthData[], fileName: string) => void;
   onError: (error: string) => void;
+  isUploading?: boolean;
 }
 
 interface UploadProgress {
@@ -18,9 +25,30 @@ interface UploadProgress {
   percentage: number;
 }
 
+// Group health data types by category for filter UI
+const dataTypesByCategory = Object.entries(HEALTH_DATA_TYPES).reduce(
+  (acc, [key, value]) => {
+    const category = Object.entries(METRIC_CATEGORIES).find(([_, catName]) => {
+      const categoryMatch = Object.values(HEALTH_DATA_TYPES).find(
+        (type) => type === value
+      );
+      return categoryMatch;
+    })?.[0] || "OTHER";
+    
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    
+    acc[category].push({ key, value });
+    return acc;
+  },
+  {} as Record<string, Array<{ key: string; value: string }>>
+);
+
 export function HealthDataUpload({
   onDataParsed,
   onError,
+  isUploading,
 }: HealthDataUploadProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<
@@ -33,6 +61,18 @@ export function HealthDataUpload({
     recordsProcessed: 0,
     percentage: 0,
   });
+  
+  // Add date range filtering
+  const [dateRange, setDateRange] = useState<{
+    startDate: string | null;
+    endDate: string | null;
+  }>({
+    startDate: null,
+    endDate: null,
+  });
+  
+  // Add data type filtering
+  const [selectedDataTypes, setSelectedDataTypes] = useState<string[]>([]);
 
   // tRPC mutation for saving health data
   const uploadHealthData = api.health.uploadHealthData.useMutation({
@@ -94,7 +134,13 @@ export function HealthDataUpload({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ fileId }),
+          body: JSON.stringify({ 
+            fileId,
+            dateRange: {
+              startDate: dateRange.startDate,
+              endDate: dateRange.endDate
+            }
+          }),
         });
 
         if (!parseResponse.ok) {
@@ -107,7 +153,7 @@ export function HealthDataUpload({
           throw new Error("Failed to read response stream");
         }
 
-        let allRecords: ParsedHealthData[] = [];
+        let filteredRecords: ParsedHealthData[] = [];
         const decoder = new TextDecoder();
 
         try {
@@ -141,8 +187,15 @@ export function HealthDataUpload({
                         ((data.data.bytesProcessed ?? 0) / file.size) * 100,
                       ),
                     });
+                  } else if (data.type === "record" && data.data?.records) {
+                    // Process batch of records
+                    filteredRecords = [...filteredRecords, ...data.data.records];
                   } else if (data.type === "complete" && data.data) {
-                    allRecords = data.data.records ?? [];
+                    // Add any final records
+                    if (data.data.records) {
+                      filteredRecords = [...filteredRecords, ...data.data.records];
+                    }
+                    
                     setProgress({
                       bytesProcessed: file.size,
                       totalBytes: file.size,
@@ -162,37 +215,16 @@ export function HealthDataUpload({
           reader.releaseLock();
         }
 
-        // For now, let's create some test records to verify the database integration
-        const testRecords: ParsedHealthData[] = [
-          {
-            type: "HKQuantityTypeIdentifierStepCount",
-            value: "7500",
-            unit: "count",
-            startDate: new Date(2024, 0, 1, 8, 0, 0).toISOString(),
-            endDate: new Date(2024, 0, 1, 20, 0, 0).toISOString(),
-            sourceName: "Test iPhone",
-            sourceVersion: "17.0",
-          },
-          {
-            type: "HKQuantityTypeIdentifierHeartRate",
-            value: "78",
-            unit: "bpm",
-            startDate: new Date(2024, 0, 1, 14, 30, 0).toISOString(),
-            endDate: new Date(2024, 0, 1, 14, 30, 0).toISOString(),
-            sourceName: "Test Apple Watch",
-            sourceVersion: "10.0",
-          },
-        ];
-
-        // Save test data to database via tRPC
+        // Save health data to database via tRPC
         await uploadHealthData.mutateAsync({
           fileName: file.name,
           fileSize: file.size,
-          healthRecords: testRecords,
+          healthRecords: filteredRecords,
         });
 
+        console.log(`Successfully processed ${filteredRecords.length} records, calling onDataParsed callback`);
         setUploadStatus("success");
-        onDataParsed(testRecords, file.name);
+        onDataParsed(filteredRecords, file.name);
       } catch (error) {
         console.error("Upload error:", error);
         setUploadStatus("error");
@@ -205,12 +237,23 @@ export function HealthDataUpload({
         setIsProcessing(false);
       }
     },
-    [onDataParsed, onError, uploadHealthData],
+    [onDataParsed, onError, uploadHealthData, dateRange.startDate, dateRange.endDate],
   );
+
+  // Apply the isUploading prop from parent component
+  useEffect(() => {
+    if (isUploading) {
+      setUploadStatus("processing");
+    }
+  }, [isUploading]);
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } =
     useDropzone({
-      onDrop,
+      onDrop: useCallback(
+        // Explicitly cast as any to avoid TypeScript errors with async function
+        onDrop as any,
+        [onDataParsed, onError, uploadHealthData, dateRange.startDate, dateRange.endDate],
+      ),
       accept: {
         "text/xml": [".xml"],
         "application/xml": [".xml"],
@@ -280,7 +323,65 @@ export function HealthDataUpload({
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      {/* Upload Filters */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Import Options</CardTitle>
+          <CardDescription>Customize your Apple Health data import</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Date Range Filter */}
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Date Range</Label>
+            <div className="flex flex-wrap gap-2">
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  id="startDate"
+                  placeholder="Start Date"
+                  value={dateRange.startDate ?? ""}
+                  onChange={(e) => 
+                    setDateRange(prev => ({ ...prev, startDate: e.target.value || null }))
+                  }
+                />
+              </div>
+              <div className="flex-1">
+                <Input
+                  type="date"
+                  id="endDate"
+                  placeholder="End Date"
+                  value={dateRange.endDate ?? ""}
+                  onChange={(e) => 
+                    setDateRange(prev => ({ ...prev, endDate: e.target.value || null }))
+                  }
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    const threeMonthsAgo = format(subMonths(new Date(), 3), "yyyy-MM-dd");
+                    setDateRange({ startDate: threeMonthsAgo, endDate: format(new Date(), "yyyy-MM-dd") });
+                  }}
+                  size="sm"
+                >
+                  Last 3 Months
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDateRange({ startDate: null, endDate: null })}
+                  size="sm"
+                >
+                  All Data
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dropzone */}
       <div
         {...getRootProps()}
         className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-all duration-200 ${getBorderColor()} ${getBackgroundColor()} ${isProcessing ? "cursor-not-allowed opacity-75" : "hover:border-blue-400 hover:bg-blue-50"} `}
@@ -294,6 +395,13 @@ export function HealthDataUpload({
             <p className="text-lg font-medium text-gray-700">
               {getStatusText()}
             </p>
+            
+            {dateRange.startDate && dateRange.endDate && (
+              <p className="text-sm text-blue-600">
+                Filtering data from {format(parseISO(dateRange.startDate), "MMM d, yyyy")} to{" "}
+                {format(parseISO(dateRange.endDate), "MMM d, yyyy")}
+              </p>
+            )}
 
             {(uploadStatus === "uploading" || uploadStatus === "processing") &&
               progress.totalBytes > 0 && (

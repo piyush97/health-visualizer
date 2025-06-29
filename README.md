@@ -1,29 +1,97 @@
-# Create T3 App
+# Health Visualizer
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+A comprehensive health analytics platform that transforms your Apple Health data into actionable insights with beautiful visualizations and AI-powered recommendations.
 
-## What's next? How do I make an app with this?
+## Features
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+- **Easy Data Upload**: Simply export your data from Apple Health and upload the XML file
+- **Interactive Charts**: Visualize health trends with beautiful, interactive charts and graphs
+- **AI Health Assistant**: Get personalized insights and recommendations based on your data patterns
+- **Comprehensive Metrics**: Track steps, heart rate, sleep, weight, and dozens of other health metrics
+- **Privacy First**: Your health data is encrypted and secure with no third-party sharing
+- **Real-time Analysis**: Instant analysis of your health data with immediate insights
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Getting Started
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+### Prerequisites
 
-## Learn More
+- Node.js 18+ 
+- npm or yarn package manager
+- PostgreSQL database
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+### Installation
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd health-visualizer
+```
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+2. Install dependencies:
+```bash
+npm install
+```
 
-## How do I deploy this?
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
+Fill in your database URL, Clerk authentication keys, and other required environment variables.
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+4. Set up the database:
+```bash
+npm run db:push
+```
+
+5. Run the development server:
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+## Tech Stack
+
+This project is built with the [T3 Stack](https://create.t3.gg/):
+
+- **Framework**: [Next.js](https://nextjs.org) with App Router
+- **Authentication**: [Clerk](https://clerk.com) for user management
+- **Database**: [Prisma](https://prisma.io) ORM with PostgreSQL
+- **Styling**: [Tailwind CSS](https://tailwindcss.com)
+- **API**: [tRPC](https://trpc.io) for type-safe APIs
+- **UI Components**: [Radix UI](https://www.radix-ui.com/) with custom styling
+- **Charts**: [Chart.js](https://www.chartjs.org/) and [Recharts](https://recharts.org/)
+- **AI Integration**: OpenAI SDK for health insights
+
+## Available Scripts
+
+- `npm run dev` - Start development server with Turbo
+- `npm run build` - Build the application for production
+- `npm run start` - Start the production server
+- `npm run lint` - Run ESLint
+- `npm run typecheck` - Run TypeScript type checking
+- `npm run db:push` - Push database schema changes
+- `npm run db:studio` - Open Prisma Studio
+- `npm run format:write` - Format code with Prettier
+
+## How to Use
+
+1. **Sign Up**: Create an account or sign in with your existing credentials
+2. **Export Apple Health Data**: Export your health data from the Apple Health app as an XML file
+3. **Upload Data**: Use the upload feature to process your health data
+4. **Explore Insights**: View interactive charts and get AI-powered health recommendations
+5. **Chat with AI**: Ask questions about your health data and get personalized insights
+
+## Deployment
+
+This application can be deployed on various platforms:
+
+- **Vercel** (recommended): Connect your GitHub repository for automatic deployments
+- **Railway**: Deploy with PostgreSQL database
+- **Docker**: Use the provided Docker configuration
+
+Make sure to set up your environment variables and database connection in your deployment platform.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

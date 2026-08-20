@@ -1,0 +1,30 @@
+# Stale-bot: keep issues and PRs tidy without ever auto-closing them.
+#
+# Issues are marked stale after 60 days of inactivity; PRs after 30 days.
+# `days-before-*-close` is set to -1 so nothing is ever closed automatically.
+# Dependabot PRs (labelled "dependencies") are exempt from the stale marking.
+
+name: "Stale bot"
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # every Monday at 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v11
+        with:
+          days-before-issue-stale: 60
+          days-before-issue-close: -1
+          days-before-pr-stale: 30
+          days-before-pr-close: -1
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"
+          exempt-pr-labels: "dependencies"

@@ -1,0 +1,75 @@
+# CI for health-visualizer
+#
+# npm is the canonical package manager (see MAINTAINING.md). The pipeline
+# installs from package-lock.json with `npm ci --legacy-peer-deps` and then
+# runs the project's build and typecheck scripts on Node 20 LTS. Lint runs as
+# an explicit, non-blocking debt tracker (the repo carries pre-existing ESLint
+# errors — see MAINTAINING.md).
+
+name: "CI"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: "Build & typecheck"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: "Install dependencies"
+        # --legacy-peer-deps: react is pinned at ^19.1.0 while the latest
+        # @clerk/nextjs (within the ^6.21.0 range) requires react ~19.2.3+.
+        # This is the canonical install for this repo until the manifest is
+        # reconciled (see MAINTAINING.md).
+        run: npm ci --legacy-peer-deps
+        env:
+          # Required by `prisma generate` (postinstall) — a placeholder URL is
+          # sufficient; no database connection is made during install/build.
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/health-visualizer
+
+      - name: "Build"
+        # SKIP_ENV_VALIDATION=1 skips @t3-oss/env-nextjs validation (the
+        # documented escape hatch for builds without real secrets). The Clerk
+        # key is a well-formed test key so /signin can prerender.
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/health-visualizer
+          OPENAI_API_KEY: placeholder
+          CLERK_SECRET_KEY: placeholder
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+          SKIP_ENV_VALIDATION: "1"
+
+      - name: "Lint"
+        # Runs `next lint`. The repo currently carries pre-existing lint errors
+        # in scaffolded code (see MAINTAINING.md) that do not block the build
+        # (`eslint.ignoreDuringBuilds` in next.config.js). This step tracks the
+        # debt without failing CI (`continue-on-error`); check its logs and
+        # clean the errors up incrementally.
+        continue-on-error: true
+        run: npm run lint
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/health-visualizer
+          SKIP_ENV_VALIDATION: "1"
+
+      - name: "Typecheck"
+        run: npm run typecheck
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/health-visualizer
+          OPENAI_API_KEY: placeholder
+          CLERK_SECRET_KEY: placeholder
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+          SKIP_ENV_VALIDATION: "1"

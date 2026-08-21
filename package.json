@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "next build",
-    "check": "next lint && tsc --noEmit",
+    "check": "eslint . && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
@@ -14,8 +14,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "postinstall": "prisma generate",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "next build && next start",
     "start": "next start",
     "typecheck": "tsc --noEmit"
@@ -23,7 +23,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^4.0.45",
     "@auth/prisma-adapter": "^2.11.3",
-    "@clerk/nextjs": "^6.21.0",
+    "@clerk/nextjs": "^7.8.0",
     "@hookform/resolvers": "^5.1.1",
     "@prisma/client": "^6.9.0",
     "@radix-ui/react-accordion": "^1.2.20",
@@ -72,7 +72,7 @@
     "file-saver": "^2.0.5",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.31.0",
-    "next": "^15.3.3",
+    "next": "^16.3.1",
     "next-auth": "5.0.0-beta.25",
     "next-themes": "^0.4.6",
     "react": "^19.2.8",

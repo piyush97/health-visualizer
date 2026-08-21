@@ -92,7 +92,7 @@ Remember: Always suggest users consult healthcare professionals for medical conc
           model: openai("gpt-3.5-turbo"),
           system: systemPrompt,
           prompt: input.content,
-          maxTokens: 500,
+          maxOutputTokens: 500,
         });
 
         // Save AI response

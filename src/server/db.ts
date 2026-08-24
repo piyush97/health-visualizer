@@ -1,9 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 import { env } from "~/env";
 
 const createPrismaClient = () =>
   new PrismaClient({
+    adapter: new PrismaPg(env.DATABASE_URL),
     log:
       env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
